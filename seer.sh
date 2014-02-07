@@ -33,6 +33,7 @@ SID=${ORACLE_SID:orcl}
 SERVICE_NAME=
 USER=
 PASS=
+LINESIZE=`tput cols`
 
 # Show usage and options for the script.
 ################################################################################
@@ -78,6 +79,7 @@ ${white}Options:${none}
   -s, --sid SID         set the Oracle SID to SID           (default: orcl)
   -n, --service NAME    set the Oracle service name to NAME
 
+      --width WIDTH     limit the output to WIDTH columns
   -v, --verbose         print additional output
 
 ${white}Examples:${none}
@@ -141,7 +143,7 @@ run_sqlplus() {
     mkdir -p ${TMPDIR} && cat > "$temp_filename" <<EOF
 set sqlprompt '' trimspool on truncate on wrap off tab off
 set numformat 99999999999999
-set linesize 32767
+set linesize ${LINESIZE}
 set pagesize 50000
 set timing on
 $@;
@@ -207,6 +209,10 @@ function main() {
       ;;
     -s|--sid)
       SID="$1"
+      shift
+      ;;
+    --width)
+      LINESIZE=$1
       shift
       ;;
     -v|--verbose)
