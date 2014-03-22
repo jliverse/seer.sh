@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 ################################################################################
 # Name         seer.sh 
-# Version      0.1 (2014 February 2)
+# Version      0.2 (2014 March 4)
 # Description  For developers who work with Oracle databases, Seer is a shell
 #              script for UNIX machines that calls SQL*Plus with parameters
 #              given at the prompt.
@@ -25,7 +25,7 @@
 # ./seer.sh myscript.sql
 # ./seer.sh -h localhost -p 1521 -s orcl -u myusername -w mypassword "select * from TAB"
 
-VERSION=0.1
+VERSION=0.2
 
 HOST=localhost
 PORT=1521
@@ -35,30 +35,28 @@ USER=
 PASS=
 LINESIZE=`tput cols`
 
+# If we have something that looks like an ANSI-friendly
+# terminal, set a few color variables.
+################################################################################
+case $TERM in
+  *xterm*|rxvt*)
+    tput sgr0
+    purple='\033[1;35m'
+    white='\033[1;37m'
+    none='\033[0m'
+    ;;
+esac
+
 # Show usage and options for the script.
 ################################################################################
 function run_usage() {
 
   local icon=
   # Use Emoji on the Mac
-  if [ $TERM_PROGRAM == 'Apple_Terminal' ] ; then
-    icon="🔮  "
+  if [ $TERM_PROGRAM='Apple_Terminal' ]; then
+    icon="🔮 "
   fi
 
-  # If we have something that looks like an ANSI-friendly
-  # terminal, set a few color variables.
-  local purple=
-  local white=
-  local none=
-  case $TERM in
-    *xterm*|rxvt*)
-      tput sgr0
-      purple='\033[1;35m'
-      white='\033[1;37m'
-      none='\033[0m'
-      ;;
-  esac
-  
   local script=`basename "$0"`
 
   # Read some multi-line usage text into the variable 'usage'.
@@ -107,10 +105,16 @@ function connection_string() {
 run_sqlplus() {
 
   echo
+
+  if ! $(command -v sqlplus >/dev/null 2>&1); then
+    echo >&2 "The ${purple}sqlplus${none} command could not be found. Check your environment and verify that ${white}\$ORACLE_HOME/bin${none} is referenced in ${white}\$PATH${none}."
+    echo
+    exit 1
+  fi
   
   local login="/"
   local command="sqlplus -L"
-  if [[ -n "${USER}" && -n "${PASS}" ]]; then
+  if [ -n "${USER}" -a -n "${PASS}" ]; then
     login="$USER/$PASS"
     command="sqlplus -S"
   elif [ -n "$USER" ]; then
@@ -123,6 +127,7 @@ run_sqlplus() {
   
   local connection=$(connection_string)
   local filename=$1
+
   # If the first argument is a file, assume we're executing a script.
   if [ -e "$filename" ]; then
     # We could have arguments passed into the script, so pop the file name.
@@ -138,9 +143,10 @@ run_sqlplus() {
     # SQL statements. We could run this inline, but we need to be able to type
     # in a password if not provided as a command-line option.
     local pid=$$
-    local temp_filename="$TMPDIR/seer-`date '+%Y%m%d-%H%M'`-${pid}.sql"
+    local temp_directory=".seer"
+    local temp_filename="${temp_directory}/seer-`date '+%Y%m%d-%H%M'`-${pid}.sql"
 
-    mkdir -p ${TMPDIR} && cat > "$temp_filename" <<EOF
+    mkdir -p "$temp_directory" && cat > "$temp_filename" <<EOF
 set sqlprompt '' trimspool on truncate on wrap off tab off
 set numformat 99999999999999
 set linesize ${LINESIZE}
@@ -180,7 +186,7 @@ function main() {
   # Parse command-line arguments.
   # Credit: http://stackoverflow.com/questions/192249/
   local args=()
-  while [[ $# > 0 ]]; do
+  while [ $# -gt 0 ]; do
     local key="$1"
     shift
     case $key in
